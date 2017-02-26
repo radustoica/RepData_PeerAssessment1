@@ -7,19 +7,174 @@ output:
 
 
 ## Loading and preprocessing the data
+```{r}
 
+if(!file.exists("activity.csv")) {
+    
+    url = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip";
+    download.file(url, "activity.zip");
+    unzip("activity.zip");
+}
 
+dataset = read.csv("activity.csv");
 
+# construct a POSIXlt time column
+dataset$time = as.POSIXlt(paste(dataset$date, " ", dataset$interval %/% 100, "-", dataset$interval %% 100, "-", 0, sep = ""), format = "%Y-%m-%d %H-%M-%S", tz = "GMT");
+
+# cast column to a Date datatype
+dataset$date = as.Date(dataset$date, format = "%Y-%m-%d");
+
+```
 ## What is mean total number of steps taken per day?
 
+```{r}
 
+# calculate daily sum of steps
+tmp = sapply(split(dataset$steps, dataset$date), sum, na.rm = TRUE);
+
+hist(tmp, freq = T, xlab = "Total number of steps", ylab = "Days frequevecy", main = "Histogram of total number of steps");
+
+# removing temporary
+rm("tmp");
+
+# calculate daily mean of steps
+tmp = sapply(split(dataset$steps, dataset$date), mean, na.rm = TRUE);
+# calculate daily median of steps
+tmp1 = sapply(split(dataset$steps, dataset$date), median, na.rm = TRUE);
+
+cnames = names(tmp);
+t = as.data.frame(cbind(cnames, unname(tmp), unname(tmp1)));
+
+names(t) = c("Day", "Mean", "Median");
+
+print(t);
+
+# removing temporary
+rm( list = c("tmp", "tmp1", "cnames", "t") );
+
+
+
+```
 
 ## What is the average daily activity pattern?
 
+```{r}
 
+# calculate mean for interval
+temp = tapply(dataset$steps, dataset$interval, mean, na.rm = TRUE);
+
+cnames = as.integer(names(temp));
+
+x = as.data.frame(cbind(cnames, unname(temp)));
+names(x) = c("interval", "mean");
+
+plot(x$mean ~ x$interval, type = "l", xlab = "interval", ylab = "mean", main = "Mean by time frame");
+
+# the maximum mean of steps:
+x[max(x$mean) == x$mean, 1:2];
+
+# removing temporary
+rm(list = c("x", "cnames", "temp"));
+
+
+
+
+
+```
 
 ## Imputing missing values
 
+```{r}
 
+# report the total number of missing values in the dataset
+sum(is.na(dataset$steps));
+
+# calculate mean for interval
+temp = tapply(dataset$steps, dataset$interval, mean, na.rm = TRUE);
+
+cnames = as.integer(names(temp));
+
+x = as.data.frame(cbind(cnames, unname(temp)));
+names(x) = c("interval", "mean");
+
+# for every NA step will use the mean of the interval
+for(i in seq_along(dataset$steps)) {
+    if(is.na(dataset$steps[i])) {
+        dataset$steps[i] = x[x$interval == dataset$interval[i], 2];
+    }
+}
+
+
+# removing temporary
+rm(list = c("x", "cnames", "temp"));
+
+# calculate daily sum of steps
+tmp = sapply(split(dataset$steps, dataset$date), sum, na.rm = TRUE);
+
+hist(tmp, freq = T, xlab = "Total number of steps", ylab = "Days frequevecy", main = "Histogram of total number of steps");
+
+# removing temporary
+rm("tmp");
+
+# calculate daily mean of steps
+tmp = sapply(split(dataset$steps, dataset$date), mean, na.rm = TRUE);
+# calculate daily median of steps
+tmp1 = sapply(split(dataset$steps, dataset$date), median, na.rm = TRUE);
+
+cnames = names(tmp);
+t = as.data.frame(cbind(cnames, unname(tmp), unname(tmp1)));
+
+names(t) = c("Day", "Mean", "Median");
+
+print(t);
+
+# removing temporary
+rm( list = c("tmp", "tmp1", "cnames", "t") );
+
+```
+
+Looking at the histograms we notice that the second one(the one without NAs) looks more like a normal distribution.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+
+```{r, fig.width = 20, fig.height = 16}
+# creating wday column
+dataset$wday = weekdays(dataset$date);
+bool = grepl("^S", dataset$wday);
+dataset$day.type = "Weekday";
+dataset$day.type[bool] = "Weekend";
+dataset$day.type = as.factor(dataset$day.type);
+
+
+dataset_weekend = dataset[bool, ];
+dataset_weekday = dataset[!bool, ];
+
+# calculate mean for interval
+temp = tapply(dataset_weekend$steps, dataset_weekend$interval, mean, na.rm = TRUE);
+
+cnames = as.integer(names(temp));
+
+x = as.data.frame(cbind(cnames, unname(temp)));
+names(x) = c("interval", "mean");
+
+temp1 = tapply(dataset_weekday$steps, dataset_weekday$interval, mean, na.rm = TRUE);
+
+cnames1 = as.integer(names(temp1));
+
+y = as.data.frame(cbind(cnames1, unname(temp1)));
+names(y) = c("interval", "mean");
+
+par(mfrow = c(2, 1));
+plot(x$mean ~ x$interval, type = "l", xlab = "interval", ylab = "mean step", main = "Weekend", ylim = range(y$mean));
+plot(y$mean ~ y$interval, type = "l", xlab = "interval", ylab = "mean step", main = "Weekday");
+
+# removing temporary
+rm(list = c("x", "cnames", "temp"));# 
+rm(list = c("y", "cnames1", "temp1"));
+rm(list = c("dataset_weekday", "dataset_weekend"));
+
+
+
+```
+
